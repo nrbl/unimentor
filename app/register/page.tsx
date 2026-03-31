@@ -1,0 +1,121 @@
+"use client"
+
+import { useState } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { GraduationCap, Loader2 } from "lucide-react"
+import { toast } from "sonner"
+
+export default function RegisterPage() {
+  const { register, user } = useAuth()
+  const router = useRouter()
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState<"student" | "teacher">("student")
+  const [loading, setLoading] = useState(false)
+
+  if (user) {
+    router.replace("/")
+    return null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullName || !email || !password) {
+      toast.error("Заполните все поля")
+      return
+    }
+    if (password.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов")
+      return
+    }
+    setLoading(true)
+    try {
+      await register(fullName, email, password, role)
+      toast.success("Регистрация выполнена")
+      router.push("/")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Ошибка регистрации")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <GraduationCap className="h-7 w-7 text-primary-foreground" />
+          </div>
+          <CardTitle className="text-2xl">Регистрация</CardTitle>
+          <CardDescription>Создайте аккаунт студента UniMentor</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="fullName">Полное имя</Label>
+              <Input
+                id="fullName"
+                placeholder="Иванов Иван"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">Пароль</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Минимум 6 символов"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="role">Роль</Label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as "student" | "teacher")}
+                className="rounded-md border px-2 py-2"
+              >
+                <option value="student">Студент</option>
+                <option value="teacher">Преподаватель</option>
+              </select>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Зарегистрироваться
+            </Button>
+          </form>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {"Уже есть аккаунт? "}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Войти
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
