@@ -122,6 +122,11 @@ export interface ProgressSummary {
   progress_percent: number
 }
 
+export interface SkillProgress {
+  concept: string
+  proficiency: number
+}
+
 export interface ModuleWithLessons {
   module: Module
   lessons: Lesson[]

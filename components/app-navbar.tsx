@@ -44,7 +44,8 @@ export function AppNavbar() {
         ]
       : user.role === "teacher"
         ? [
-            { href: "/teacher", label: "Мои курсы", icon: GraduationCap },
+            { href: "/teacher", label: "Дашборд", icon: LayoutDashboard },
+            { href: "/teacher/courses", label: "Мои курсы", icon: GraduationCap },
           ]
         : [
             { href: "/admin", label: "Админ-панель", icon: Settings },

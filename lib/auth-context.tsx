@@ -27,10 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (tokens?.accessToken) {
       authApi.me()
         .then((user) => {
+          // backend role is now normalized in api.me()
+          if (user.role) {
+            localStorage.setItem("unimentor_role", user.role)
+          }
           setState({ user, loading: false })
         })
         .catch(() => {
           authApi.clearTokens()
+          // localStorage.removeItem("unimentor_role") // keep it for better UX if they reload
           setState({ user: null, loading: false })
         })
     } else {
@@ -40,6 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await authApi.login(email, password)
+    // Always trust the role returned from backend (it's normalized in api.ts)
+    if (res.user.role) {
+      localStorage.setItem("unimentor_role", res.user.role)
+    }
     setState({ user: res.user, loading: false })
   }, [])
 
@@ -48,11 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authApi.register(full_name, email, password, role)
     // Now login with the same credentials
     const res = await authApi.login(email, password)
+    // If we specifically registered as teacher, make sure it reflects
+    if (role === "teacher") {
+      res.user.role = "teacher"
+    }
+    localStorage.setItem("unimentor_role", res.user.role || "student")
     setState({ user: res.user, loading: false })
   }, [])
 
   const logout = useCallback(() => {
     authApi.clearTokens()
+    localStorage.removeItem("unimentor_role")
     setState({ user: null, loading: false })
   }, [])
 

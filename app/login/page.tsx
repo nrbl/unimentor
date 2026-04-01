@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -18,8 +18,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (user) {
+      router.replace(user.role === "teacher" ? "/teacher" : user.role === "admin" ? "/admin" : "/")
+    }
+  }, [user, router])
+
   if (user) {
-    router.replace(user.role === "teacher" ? "/teacher" : user.role === "admin" ? "/admin" : "/")
     return null
   }
 
@@ -31,9 +36,15 @@ export default function LoginPage() {
     }
     setLoading(true)
     try {
-      await login(email, password)
+      const session = await login(email, password)
       toast.success("Вход выполнен")
-      router.push("/")
+      // Explicitly redirect based on role
+      const storedRole = localStorage.getItem("unimentor_role")
+      if (storedRole === "teacher") {
+        router.push("/teacher")
+      } else {
+        router.push("/")
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ошибка входа")
     } finally {

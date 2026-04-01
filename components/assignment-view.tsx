@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { assignmentsApi } from "@/lib/api"
 import type { Assignment, Submission } from "@/lib/types"
@@ -21,7 +21,23 @@ export function AssignmentView({ assignment }: AssignmentViewProps) {
   const { user } = useAuth()
   const [submission, setSubmission] = useState<Submission | null>(null)
   const [answerText, setAnswerText] = useState("")
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const loadSubmission = async () => {
+      setLoading(true)
+      try {
+        const sub = await assignmentsApi.getSubmission(assignment.id)
+        setSubmission(sub)
+      } catch (e) {
+        console.error("Error loading submission:", e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadSubmission()
+  }, [assignment.id])
 
   const handleSubmit = async () => {
     if (!user) return
@@ -45,6 +61,15 @@ export function AssignmentView({ assignment }: AssignmentViewProps) {
   }
 
   const isPastDue = assignment.due_at ? new Date(assignment.due_at) < new Date() : false
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+        <p className="mt-4 text-sm text-muted-foreground">Загрузка задания...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,6 +108,9 @@ export function AssignmentView({ assignment }: AssignmentViewProps) {
             <CardTitle className="text-base">Отправить работу</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <div className="rounded-lg bg-amber-500/5 p-4 text-xs text-amber-600 border border-amber-500/10 mb-2">
+              Совет: Вы можете вставить текст ответа или ссылку на ваш проект.
+            </div>
             <Textarea
               placeholder="Введите ваш ответ или вставьте код..."
               value={answerText}
@@ -102,43 +130,54 @@ export function AssignmentView({ assignment }: AssignmentViewProps) {
 
       {/* Submission Result */}
       {submission && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={submission.status} />
-                <span className="text-xs text-muted-foreground">
-                  {new Date(submission.created_at).toLocaleString("ru-RU")}
-                </span>
-              </div>
-              {submission.score !== null && (
-                <Badge variant="default">{submission.score}/{assignment.max_score}</Badge>
-              )}
-            </div>
-            <pre className="mt-3 max-h-32 overflow-auto rounded-md bg-muted p-3 text-xs text-foreground">{submission.answer_text}</pre>
+        <Card className="border-primary/20 shadow-lg">
+          <CardHeader className="pb-3 border-b">
+             <CardTitle className="text-base flex items-center justify-between">
+                <span>Ваше решение</span>
+                <div className="flex items-center gap-2">
+                   <StatusBadge status={submission.status} />
+                   {submission.score !== null && (
+                     <Badge variant="default" className="bg-primary text-primary-foreground font-bold">
+                        {submission.score} / {assignment.max_score}
+                     </Badge>
+                   )}
+                </div>
+             </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <span className="text-xs text-muted-foreground block mb-2">
+               Дата отправки: {new Date(submission.created_at).toLocaleString("ru-RU")}
+            </span>
+            <pre className="max-h-60 overflow-auto rounded-md bg-muted p-4 text-sm text-foreground whitespace-pre-wrap font-mono">
+              {submission.answer_text}
+            </pre>
 
             {(submission.ai_feedback || submission.teacher_feedback) && (
-              <>
-                <Separator className="my-3" />
+              <div className="mt-6 space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Обратная связь</h4>
                 {submission.ai_feedback && (
-                  <div className="flex gap-2 rounded-md bg-primary/5 p-3">
-                    <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <div className="flex gap-4 rounded-xl bg-primary/5 p-4 border border-primary/10">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Bot className="h-5 w-5" />
+                    </div>
                     <div>
-                      <p className="text-xs font-medium text-primary">AI-обратная связь</p>
-                      <p className="mt-1 text-sm text-foreground">{submission.ai_feedback}</p>
+                      <p className="text-xs font-bold text-primary uppercase tracking-tight">AI-тьютор</p>
+                      <p className="mt-1 text-sm text-foreground leading-relaxed italic">{submission.ai_feedback}</p>
                     </div>
                   </div>
                 )}
                 {submission.teacher_feedback && (
-                  <div className="mt-2 flex gap-2 rounded-md bg-accent/10 p-3">
-                    <User className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                  <div className="flex gap-4 rounded-xl bg-indigo-500/5 p-4 border border-indigo-500/10">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600">
+                      <User className="h-5 w-5" />
+                    </div>
                     <div>
-                      <p className="text-xs font-medium text-accent">Преподаватель</p>
-                      <p className="mt-1 text-sm text-foreground">{submission.teacher_feedback}</p>
+                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-tight">Преподаватель</p>
+                      <p className="mt-1 text-sm text-foreground font-medium">{submission.teacher_feedback}</p>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </CardContent>
         </Card>

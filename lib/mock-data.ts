@@ -1,4 +1,4 @@
-import type { User, Course, Module, Lesson, LessonBlock, LessonProgress, Assignment, Submission } from "./types"
+import type { User, Course, Module, Lesson, LessonBlock, LessonProgress, Assignment, Submission, SkillProgress } from "./types"
 
 // ============================================================
 // USERS
@@ -160,6 +160,27 @@ export const submissions: Submission[] = [
 export const quizzes: any[] = [
   // kept minimal for demo
 ]
+
+// ============================================================
+// SKILLS (For Phase 3 Radar Chart)
+// ============================================================
+export const mockSkills: Record<number | string, SkillProgress[]> = {
+  4: [
+    { concept: "Основы Python", proficiency: 85 },
+    { concept: "Структуры данных", proficiency: 60 },
+    { concept: "Вёрстка (HTML/CSS)", proficiency: 95 },
+    { concept: "JavaScript Basics", proficiency: 40 },
+    { concept: "Алгоритмы", proficiency: 30 },
+  ],
+  // Fallback for demo users
+  default: [
+    { concept: "Основы Python", proficiency: 70 },
+    { concept: "Алгоритмы", proficiency: 40 },
+    { concept: "Базы Данных", proficiency: 50 },
+    { concept: "Web", proficiency: 65 },
+    { concept: "Soft Skills", proficiency: 80 },
+  ]
+}
 
 // ============================================================
 // QUIZ ATTEMPTS

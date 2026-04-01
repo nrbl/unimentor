@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { coursesApi, assignmentsApi } from "@/lib/api"
 import type { Course, ModuleWithLessons, Lesson, Assignment, ProgressSummary } from "@/lib/types"
@@ -23,7 +23,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { CourseProgressBar, ErrorState, PageSkeleton, StatusBadge } from "@/components/shared"
-import { BookOpen, Circle, Clock, Loader2, FileText } from "lucide-react"
+import { BookOpen, Circle, Clock, Loader2, FileText, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -32,6 +32,7 @@ export default function CourseDetailPage() {
   const courseId = Number(params.courseId)
   const { user } = useAuth()
 
+  const router = useRouter()
   const [course, setCourse] = useState<Course | null>(null)
   const [modulesWithLessons, setModulesWithLessons] = useState<ModuleWithLessons[]>([])
   const [progressSummary, setProgressSummary] = useState<ProgressSummary | null>(null)
@@ -46,41 +47,26 @@ export default function CourseDetailPage() {
     setLoading(true)
     setError(null)
     try {
-      // First check if user is enrolled
-      if (user) {
-        const myCourses = await coursesApi.listMy()
-        const isEnrolled = myCourses.some((c) => c.id === courseId)
-        setEnrolled(isEnrolled)
-      }
-
       const detail = await coursesApi.get(courseId)
       setCourse(detail.course)
       setModulesWithLessons(detail.modules || [])
       setProgressSummary(detail.progress_summary || null)
+      setEnrolled(true) // If we reach here successfully with coursesApi.get, we are likely enrolled or have access
 
       // Gather all lessons and load assignments
       const allLessons = (detail.modules || []).flatMap((m) => m.lessons)
       const assignmentPromises = allLessons.map((l) => assignmentsApi.getByLesson(l.id))
       const allAssignments = (await Promise.all(assignmentPromises)).filter(Boolean) as Assignment[]
       setCourseAssignments(allAssignments)
-    } catch (e) {
-      const status = (e as any)?.status
+    } catch (e: any) {
+      const status = e?.status
       const msg = e instanceof Error ? e.message : "Ошибка загрузки"
-      // If 403 — user is not authorized/enrolled in course
-      if (status === 403) {
+      
+      // If 403 or NOT_ENROLLED — user is not enrolled
+      if (status === 403 || msg.includes("NOT_ENROLLED") || msg.includes("403")) {
         setEnrolled(false)
         setNotAuthorized(true)
-        // Try fetching without enrollment - fetch course list for basic info
-        try {
-          const allCourses = await coursesApi.listPublished()
-          const found = allCourses.find((c) => c.id === courseId)
-          if (found) setCourse(found)
-        } catch {
-          setError(msg)
-        }
-      } else if (msg.includes("NOT_ENROLLED") || msg.includes("403")) {
-        setEnrolled(false)
-        // Try fetching without enrollment - fetch course list for basic info
+        // Try fetching basic info without enrollment
         try {
           const allCourses = await coursesApi.listPublished()
           const found = allCourses.find((c) => c.id === courseId)
@@ -98,16 +84,30 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     load()
+    
+    // Force reload when tab becomes visible or focused (e.g., returning from another page)
+    const onVisibilityChange = () => {
+      if (!document.hidden) load()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    window.addEventListener("focus", onVisibilityChange)
+    
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("focus", onVisibilityChange)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, user])
 
   const handleEnroll = async () => {
-    if (!user) return
+    if (!user || enrolling || enrolled) return
     setEnrolling(true)
     try {
       await coursesApi.enroll(courseId)
+      toast.success("Вы успешно записаны на курс!")
+      
+      // Stay on the main course page to show the "Unlocked" view (modules, continue button, etc.)
       setEnrolled(true)
-      toast.success("Вы записаны на курс!")
       load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка записи")
@@ -200,15 +200,25 @@ export default function CourseDetailPage() {
               Записаться на курс
             </Button>
           ) : (
-            <Card className="w-full lg:w-64">
-              <CardContent className="p-4">
-                <p className="text-sm font-medium text-foreground">Ваш прогресс</p>
-                <CourseProgressBar percent={coursePercent} className="mt-2" />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {completedLessons} из {totalLessons} уроков пройдено
-                </p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col gap-3">
+              <Card className="w-full lg:w-64">
+                <CardContent className="p-4">
+                  <p className="text-sm font-medium text-foreground">Ваш прогресс</p>
+                  <CourseProgressBar percent={coursePercent} className="mt-2" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {completedLessons} из {totalLessons} уроков пройдено
+                  </p>
+                </CardContent>
+              </Card>
+              {allLessons.length > 0 && (
+                <Link href={`/lessons/${allLessons[0].id}`}>
+                  <Button className="w-full" size="lg">
+                    Продолжить обучение
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>

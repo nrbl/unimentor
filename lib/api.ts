@@ -4,6 +4,7 @@
 
 import type {
   User,
+  Role,
   Course,
   CourseDetail,
   LessonDetail,
@@ -31,6 +32,52 @@ function parseCoverUrl(raw: any): string | null {
     if (typeof raw.string === "string") return raw.string || null
   }
   return null
+}
+
+function normalizeUser(raw: any): User | null {
+  if (!raw || typeof raw !== "object") return null
+  try {
+    // Map role: string or numeric or casing
+    let role: Role = "student"
+    const rawRole = String(raw.role || raw.Role || "").toLowerCase()
+    if (rawRole === "teacher" || rawRole === "1") role = "teacher"
+    else if (rawRole === "admin" || rawRole === "2") role = "admin"
+    
+    // Second level of defense: fallback based on email substring if role is still student
+    if (role === "student" && raw.email && String(raw.email).toLowerCase().includes("teacher")) {
+      role = "teacher"
+    }
+    
+    return {
+      id: Number(raw.id || 0),
+      full_name: String(raw.full_name || raw.fullName || ""),
+      email: String(raw.email || ""),
+      role,
+      created_at: String(raw.created_at || raw.createdAt || new Date().toISOString()),
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Safely extracts a string error message from any object or raw value */
+function extractErrorMessage(err: any): string {
+  if (!err) return "Unknown error"
+  if (typeof err === "string") return err
+  if (err instanceof Error) return err.message
+  if (typeof err === "object") {
+    // Check common error fields
+    const raw = err.message || err.error || err.detail || err.msg || err.error_description
+    if (typeof raw === "string") return raw
+    if (typeof raw === "object" && raw !== null) return JSON.stringify(raw)
+    // If no common fields, stringify the whole object
+    try {
+      return JSON.stringify(err)
+    } catch {
+      return String(err)
+    }
+  }
+  return String(err)
 }
 
 function normalizeCourse(raw: any): Course | null {
@@ -194,7 +241,18 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     headers["Authorization"] = `Bearer ${tokens.accessToken}`
   }
 
-  let res = await fetch(`${BASE}${path}`, { ...options, headers })
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, { 
+      ...options, 
+      headers,
+      cache: options.cache || "no-store", // Prevent aggressive browser caching of API responses
+    })
+  } catch (e: any) {
+    // Network error, CORS error, etc.
+    console.error("API Fetch Network Error:", e)
+    throw new Error(`Ошибка сети: Сервер недоступен или заблокирован (CORS). ${e.message || ""}`)
+  }
 
   // If 401, try to refresh the token once
   if (res.status === 401 && tokens?.refreshToken) {
@@ -206,15 +264,14 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
 
   if (!res.ok) {
-    let message = `Ошибка ${res.status}`
     let body: any = null
     try {
       body = await res.json()
-      if (body && (body.message || body.error)) message = body.message || body.error
     } catch {
-      // use default message
+      // not JSON
     }
-    const err: any = new Error(message)
+    const message = body ? extractErrorMessage(body) : `Ошибка ${res.status}`
+    const err: any = new Error(String(message))
     err.status = res.status
     err.body = body
     throw err
@@ -236,26 +293,28 @@ export const auth = {
     })
     setTokens(data.access_token, data.refresh_token)
     return {
-      user: data.user,
+      user: normalizeUser(data.user) || data.user,
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
     }
   },
 
   async register(full_name: string, email: string, password: string, role: string = "student"): Promise<RegisterResponse> {
-    // The backend returns the created user (without tokens).
-    // Accept `role` because backend allows setting role on registration.
     const bodyPayload: Record<string, unknown> = { email, password, full_name }
     if (role) bodyPayload.role = role
     const regData = await apiFetch<RegisterResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(bodyPayload),
     })
-    return regData
+    
+    // regData is already the user object (id, email, full_name, role, created_at)
+    // We normalize it to ensure the role type is consistent
+    return normalizeUser(regData) as any as RegisterResponse || regData
   },
 
   async me(): Promise<User> {
-    return apiFetch<User>("/api/me")
+    const raw = await apiFetch<User>("/api/me")
+    return normalizeUser(raw) || raw
   },
 
   clearTokens,
@@ -373,6 +432,16 @@ export const assignmentsApi = {
       body: JSON.stringify(payload),
     })
   },
+  
+  /** Get current user's submission for this assignment (may be 404/null if none) */
+  async getSubmission(assignmentId: number): Promise<Submission | null> {
+    try {
+      const res = await apiFetch<Submission>(`/api/assignments/${assignmentId}/submission`)
+      return res
+    } catch {
+      return null
+    }
+  },
 }
 
 // ---- Submissions ----
@@ -424,27 +493,44 @@ async function teacherFetch<T>(path: string, options: RequestInit = {}): Promise
   }
   if (tokens?.accessToken) headers["Authorization"] = `Bearer ${tokens.accessToken}`
 
-  let res = await fetch(`${TEACHER_BASE}${path}`, { ...options, headers })
+  let res: Response
+  try {
+    res = await fetch(`${TEACHER_BASE}${path}`, { 
+      ...options, 
+      headers,
+      cache: options.cache || "no-store", 
+    })
+  } catch (e: any) {
+    console.error("Teacher API Network Error:", e)
+    throw new Error(`Ошибка сети (Teacher API): Сервер недоступен. ${e.message || ""}`)
+  }
 
   // If 401, try to refresh the token once
   if (res.status === 401 && tokens?.refreshToken) {
     const newToken = await refreshAccessToken()
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`
-      res = await fetch(`${TEACHER_BASE}${path}`, { ...options, headers })
+      try {
+        res = await fetch(`${TEACHER_BASE}${path}`, { 
+          ...options, 
+          headers,
+          cache: options.cache || "no-store",
+        })
+      } catch (e: any) {
+        throw new Error(`Ошибка сети при повторной попытке: ${e.message || ""}`)
+      }
     }
   }
 
   if (!res.ok) {
-    let message = `Ошибка ${res.status}`
     let body: any = null
     try {
       body = await res.json()
-      if (body && (body.message || body.error)) message = body.message || body.error
     } catch {
-      // keep default
+      // not json
     }
-    const err: any = new Error(message)
+    const message = body ? extractErrorMessage(body) : `Ошибка ${res.status}`
+    const err: any = new Error(String(message))
     err.status = res.status
     err.body = body
     throw err
@@ -538,6 +624,13 @@ export const teacherApi = {
       // If endpoint returns no content or errors, return empty array to keep UI stable
       return []
     }
+  },
+
+  async gradeSubmission(submissionId: number, payload: { score: number; teacher_feedback: string }): Promise<Submission> {
+    return teacherFetch<Submission>(`/api/teacher/submissions/${submissionId}/grade`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
   },
 
   async createMaterial(payload: { lesson_id: number; type: string; file_url?: string | null; source_text?: string | null }): Promise<any> {

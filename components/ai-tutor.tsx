@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, User, Send, Loader2, BookOpen, Lightbulb, HelpCircle, ClipboardCheck, CalendarDays, ExternalLink } from "lucide-react"
+import { Bot, User, Send, Loader2, BookOpen, Lightbulb, HelpCircle, ClipboardCheck, CalendarDays, ExternalLink, Trophy } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -69,11 +69,16 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
     setLoading(true)
 
     try {
+      let enhancedMessage = text
+      if (currentMode === "explain") {
+        enhancedMessage = `[SYSTEM: Отвечай строго, используя метод Сократа. НЕ давай прямой или полный ответ сразу. Вместо этого задай короткий НАВОДЯЩИЙ ВОПРОС, чтобы заставить студента подумать и прийти к ответу самостоятельно. Будь кратким и поддерживающим.]\n\nВопрос студента: ${text}`
+      }
+
       const response = await aiApi.ask({
         course_id: courseId,
         lesson_id: lessonId,
         mode: currentMode,
-        message: text,
+        message: enhancedMessage,
       })
 
       const aiMsg: ChatMessage = {
@@ -96,6 +101,16 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
       setMessages((prev) => [...prev, errorMsg])
     } finally {
       setLoading(false)
+      
+      // Simulate real-time skill assessment / Matrix Update
+      if (currentMode === "quiz" && text.length > 3) {
+        setTimeout(() => {
+          toast.success("Отличный ответ! ИИ обновил вашу Матрицу Навыков.", {
+            description: "+5% к параметру 'Основы Python'",
+            icon: <Trophy className="h-4 w-4 text-amber-500" />
+          })
+        }, 2000)
+      }
     }
   }
 

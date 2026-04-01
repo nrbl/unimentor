@@ -38,8 +38,10 @@ function NewCourseContent() {
       })
       toast.success("Курс создан!")
       router.push(`/teacher/courses/${course.id}/edit`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка создания курса")
+    } catch (e: any) {
+      console.error(e)
+      toast.error(String(e.message || "Ошибка создания курса"))
+      // Remove fake fallback to avoid user confusion
     } finally {
       setLoading(false)
     }

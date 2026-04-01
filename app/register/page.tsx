@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -20,8 +20,13 @@ export default function RegisterPage() {
   const [role, setRole] = useState<"student" | "teacher">("student")
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (user) {
+      router.replace("/")
+    }
+  }, [user, router])
+
   if (user) {
-    router.replace("/")
     return null
   }
 
@@ -39,7 +44,11 @@ export default function RegisterPage() {
     try {
       await register(fullName, email, password, role)
       toast.success("Регистрация выполнена")
-      router.push("/")
+      if (role === "teacher") {
+        router.push("/teacher")
+      } else {
+        router.push("/")
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ошибка регистрации")
     } finally {

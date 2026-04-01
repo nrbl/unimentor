@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ArrowRight, BookOpen, Play } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { ProactiveNudge } from "@/components/proactive-nudge"
 
 export function StudentHome() {
   const { user } = useAuth()
@@ -47,7 +48,10 @@ export function StudentHome() {
   if (error) return <div className="p-6"><ErrorState message={error} onRetry={load} /></div>
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 relative">
+      {myCourses.length > 0 && (
+        <ProactiveNudge courseName={myCourses[0].title} courseId={myCourses[0].id} />
+      )}
       <h1 className="text-2xl font-bold text-foreground">
         {"Привет, "}{user?.full_name?.split(" ")[0] || "Студент"}{"!"}
       </h1>

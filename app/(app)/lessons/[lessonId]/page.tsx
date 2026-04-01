@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { lessonsApi, assignmentsApi, coursesApi } from "@/lib/api"
 import type { Lesson, LessonBlock, Assignment, LessonProgress } from "@/lib/types"
@@ -37,6 +37,7 @@ function parseBlockData(block: LessonBlock): LessonBlock {
 
 export default function LessonPage() {
   const params = useParams()
+  const router = useRouter()
   const lessonId = Number(params.lessonId)
   const { user } = useAuth()
 
@@ -65,26 +66,31 @@ export default function LessonPage() {
       setAssignment(assignData)
       // Derive courseId from module info if available
       if (lessonData.lesson.module_id) {
-        // Try to find course by scanning published courses and their modules
-        (async () => {
-          try {
-            const courses = await coursesApi.listPublished()
-            for (const c of courses) {
-              try {
-                const detail = await coursesApi.get(c.id)
-                const found = detail.modules.find((m) => m.module.id === lessonData.lesson.module_id)
-                if (found) {
+        // First check enrolled courses (much faster)
+        coursesApi.listMy()
+          .then(myCourses => {
+            const found = myCourses.find(c => c.id === lessonId /* this is likely wrong, let's just scan detail */)
+            // Actually, we should just scan the courses we have access to
+            for (const c of myCourses) {
+              coursesApi.get(c.id).then(detail => {
+                if (detail.modules.find(m => m.module.id === lessonData.lesson.module_id)) {
                   setCourseId(c.id)
-                  break
                 }
-              } catch {
-                // ignore individual course errors
-              }
+              }).catch(() => {})
             }
-          } catch {
-            // ignore errors finding course
-          }
-        })()
+          })
+          .catch(() => {
+            // Fallback to published if needed
+            coursesApi.listPublished().then(pubCourses => {
+              for (const c of pubCourses) {
+                coursesApi.get(c.id).then(detail => {
+                  if (detail.modules.find(m => m.module.id === lessonData.lesson.module_id)) {
+                    setCourseId(c.id)
+                  }
+                }).catch(() => {})
+              }
+            }).catch(() => {})
+          })
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки")
@@ -104,6 +110,30 @@ export default function LessonPage() {
       const result = await lessonsApi.complete(lessonId)
       setLessonProgress(result.progress || null)
       toast.success("Урок отмечен как пройденный!")
+      router.refresh() // Invalidate cache to show updated progress on the Course page
+      
+      // Auto-navigate to next lesson or back to course
+      if (courseId) {
+        try {
+           const detail = await coursesApi.get(courseId)
+           const allLessons = (detail.modules || []).flatMap(m => m.lessons)
+           const currentIndex = allLessons.findIndex(l => l.id === lessonId)
+           if (currentIndex >= 0 && currentIndex < allLessons.length - 1) {
+             const nextLesson = allLessons[currentIndex + 1]
+             setTimeout(() => {
+               toast.info("Переходим к следующему уроку...")
+               router.push(`/lessons/${nextLesson.id}`)
+             }, 1500)
+           } else {
+             setTimeout(() => {
+               toast.info("Возвращаемся к содержанию курса...")
+               router.push(`/courses/${courseId}`)
+             }, 1500)
+           }
+        } catch {
+           // Silently fail if course scan errors out
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка")
     } finally {
@@ -116,7 +146,7 @@ export default function LessonPage() {
   if (!lesson) return null
 
   const isCompleted = lessonProgress?.status === "completed"
-  const progressPercent = lessonProgress?.progress_percent || 0
+  const progressPercent = isCompleted ? 100 : (lessonProgress?.progress_percent || 0)
   const objectives = lesson.objectives || ""
 
   return (
