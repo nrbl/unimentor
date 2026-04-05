@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.replace(user.role === "teacher" ? "/teacher" : user.role === "admin" ? "/admin" : "/")
+      router.replace(user.role === "teacher" ? "/teacher" : user.role === "admin" ? "/admin" : "/profile")
     }
   }, [user, router])
 
@@ -42,8 +42,10 @@ export default function LoginPage() {
       const storedRole = localStorage.getItem("unimentor_role")
       if (storedRole === "teacher") {
         router.push("/teacher")
+      } else if (storedRole === "admin") {
+        router.push("/admin")
       } else {
-        router.push("/")
+        router.push("/profile")
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ошибка входа")

@@ -22,7 +22,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (user) {
-      router.replace("/")
+      router.replace(user.role === "teacher" ? "/teacher" : user.role === "admin" ? "/admin" : "/profile")
     }
   }, [user, router])
 
@@ -47,7 +47,7 @@ export default function RegisterPage() {
       if (role === "teacher") {
         router.push("/teacher")
       } else {
-        router.push("/")
+        router.push("/profile")
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ошибка регистрации")
