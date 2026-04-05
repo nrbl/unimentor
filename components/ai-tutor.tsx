@@ -22,6 +22,7 @@ import {
   Trophy,
   MessageCircle,
 } from "lucide-react"
+import { useLocale } from "@/lib/locale-context"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -65,6 +66,7 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const speakTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { t } = useLocale()
 
   const scheduleSpeakEnd = (msgId: string, durationMs: number) => {
     if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current)
@@ -176,42 +178,28 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
     <div className="flex flex-col gap-3">
       <Card className="overflow-hidden border-border/60 shadow-sm ring-1 ring-border/40">
         <div className="flex min-h-[min(420px,70vh)] flex-col lg:min-h-[440px] lg:flex-row">
-          <aside className="flex flex-col items-center gap-3 border-b border-border/50 bg-gradient-to-b from-primary/[0.07] via-muted/20 to-muted/35 px-4 py-5 lg:w-[min(100%,292px)] lg:shrink-0 lg:border-b-0 lg:border-r lg:py-6">
+            <aside className="flex flex-col items-center gap-3 border-b border-border/50 bg-gradient-to-b from-primary/[0.07] via-muted/20 to-muted/35 px-4 py-5 lg:w-[min(100%,292px)] lg:shrink-0 lg:border-b-0 lg:border-r lg:py-6">
             <TutorAvatar3D
               size="xl"
               speaking={tutorSpeaking}
               className="shadow-md ring-1 ring-black/[0.06]"
             />
             <div className="w-full text-center lg:text-left">
-              <p className="text-sm font-semibold leading-tight text-foreground">AI-тьютор</p>
+              <p className="text-sm font-semibold leading-tight text-foreground">{t("ai.title", "AI Tutor")}</p>
               <p className="mt-1 line-clamp-3 text-xs leading-snug text-muted-foreground">
-                Урок: «{lessonTitle}»
+                {t("ai.lesson", "Lesson:")}&nbsp;«{lessonTitle}»
               </p>
             </div>
-            {tutorSpeaking && (
-              <div
-                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
-                aria-live="polite"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                    Думаю над ответом…
-                  </>
-                ) : (
-                  <>Говорю — смотрите на аватар</>
-                )}
-              </div>
-            )}
+          
             <p className="hidden text-center text-[11px] leading-relaxed text-muted-foreground lg:block">
-              Задайте вопрос справа или выберите подсказку — ответ появится в чате.
+              {t("ai.hint", "Ask a question on the right or pick a quick action — the answer will appear in the chat.")}
             </p>
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="flex flex-col gap-2 border-b border-border/50 bg-muted/15 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xs font-medium text-muted-foreground">Режим</span>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">{t("ai.mode", "Mode")}</span>
                 <Select value={mode} onValueChange={(v) => setMode(v as AiMode)}>
                   <SelectTrigger className="h-9 w-full min-w-[140px] max-w-[220px] sm:w-[200px]">
                     <SelectValue />
@@ -219,11 +207,12 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
                   <SelectContent>
                     {AI_MODE_ORDER.map((key) => {
                       const val = modeLabels[key]
+                      const labelKey = `ai.mode.${key}`
                       return (
                         <SelectItem key={key} value={key} textValue={val.label}>
                           <span className="flex items-center gap-2">
                             {React.createElement(val.icon, { className: "h-4 w-4 shrink-0" })}
-                            {val.label}
+                            {t(labelKey, val.label)}
                           </span>
                         </SelectItem>
                       )
@@ -232,19 +221,22 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
                 </Select>
               </div>
               <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 sm:flex-wrap sm:overflow-visible">
-                {quickActions.map((action) => (
-                  <Button
-                    key={action.label}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="shrink-0 whitespace-nowrap text-xs"
-                    disabled={loading}
-                    onClick={() => sendMessage(action.message, action.mode)}
-                  >
-                    {action.label}
-                  </Button>
-                ))}
+                {quickActions.map((action) => {
+                  const labelKey = action.mode === "explain" ? "ai.quick.explain" : action.mode === "quiz" ? "ai.quick.quiz" : action.mode === "check_homework" ? "ai.quick.check" : "ai.quick.example"
+                  return (
+                    <Button
+                      key={action.message}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0 whitespace-nowrap text-xs"
+                      disabled={loading}
+                      onClick={() => sendMessage(action.message, action.mode)}
+                    >
+                      {t(labelKey, action.label)}
+                    </Button>
+                  )
+                })}
               </div>
             </div>
 
@@ -257,10 +249,12 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
               {messages.length === 0 ? (
                 <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 px-2 text-center">
                   <MessageCircle className="h-9 w-9 text-muted-foreground/35" strokeWidth={1.25} />
-                  <p className="text-sm font-medium text-foreground">Начните диалог</p>
+                  <p className="text-sm font-medium text-foreground">{t("ai.empty.title", "Start a conversation")}</p>
                   <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-                    Напишите вопрос внизу или нажмите быструю подсказку. Ответ появится здесь, а тьютор слева
-                    покажет речь.
+                    {t(
+                      "ai.empty.how",
+                      "Type your question below or press a quick action. The answer will appear here and the tutor on the left will show speech."
+                    )}
                   </p>
                 </div>
               ) : (
@@ -315,7 +309,7 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
                       <div className="rounded-2xl rounded-tl-md border border-border/50 bg-muted/50 px-3.5 py-2.5 shadow-sm">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                          Готовлю ответ…
+                          {t("ai.loading", "AI is thinking...")}
                         </div>
                       </div>
                     </div>
@@ -331,7 +325,7 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Вопрос по уроку…"
+                  placeholder={t("ai.placeholder", "Question about the lesson...")}
                   rows={1}
                   className="min-h-[44px] flex-1 resize-none rounded-xl border-border/60 bg-muted/30 text-sm focus-visible:ring-primary/30"
                   disabled={loading}
@@ -347,7 +341,7 @@ export function AiTutor({ courseId, lessonId, lessonTitle }: AiTutorProps) {
                 </Button>
               </form>
               <p className="mt-1.5 text-center text-[10px] text-muted-foreground sm:text-left">
-                Enter — отправить · Shift+Enter — новая строка
+                {t("ai.hint_keys", "Enter — send · Shift+Enter — new line")}
               </p>
             </div>
           </div>

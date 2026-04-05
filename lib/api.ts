@@ -19,7 +19,10 @@ import type {
   LessonBlock,
 } from "./types"
 
-const BASE = "https://unimentor-api.pp.ua"
+// API base URL. In development you can set NEXT_PUBLIC_API_URL to an absolute URL
+// (https://...) or leave it empty to use relative requests which can be proxied
+// via Next.js rewrites (recommended to avoid CORS issues during development).
+const BASE = (process.env.NEXT_PUBLIC_API_URL as string) ?? ""
 
 // ---- Response normalization helpers ----
 

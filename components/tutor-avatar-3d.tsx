@@ -8,7 +8,7 @@ import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js
 import { cn } from "@/lib/utils"
 import { User } from "lucide-react"
 
-const GLB_URL = "/avatar.glb"
+const GLB_URL = "/avatar2.glb"
 
 export type TutorAvatarSize = "sm" | "md" | "lg" | "xl"
 

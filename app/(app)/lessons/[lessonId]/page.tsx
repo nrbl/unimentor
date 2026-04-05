@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Loader2, BookOpen, PenLine, Bot } from "lucide-react"
+import { useLocale } from "@/lib/locale-context"
 import { toast } from "sonner"
 
 /** Parse block data: the backend may return `data` as a JSON string */
@@ -40,6 +41,7 @@ export default function LessonPage() {
   const router = useRouter()
   const lessonId = Number(params.lessonId)
   const { user } = useAuth()
+  const { t } = useLocale()
 
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [blocks, setBlocks] = useState<LessonBlock[]>([])
@@ -155,7 +157,7 @@ export default function LessonPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href="/">Главная</BreadcrumbLink>
+            <BreadcrumbLink href="/">{t("nav.home", "Home")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -177,12 +179,12 @@ export default function LessonPage() {
           {isCompleted ? (
             <div className="flex items-center gap-1.5 rounded-md bg-[hsl(var(--success))]/10 px-3 py-1.5 text-sm font-medium text-[hsl(var(--success))]">
               <CheckCircle2 className="h-4 w-4" />
-              Пройден
+              {t("lesson.completed", "Completed")}
             </div>
           ) : (
             <Button onClick={handleComplete} disabled={completing} variant="outline">
               {completing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              Отметить пройденным
+              {t("lesson.markComplete", "Mark as completed")}
             </Button>
           )}
         </div>
@@ -194,18 +196,18 @@ export default function LessonPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-        <TabsList className="w-full justify-start">
+          <TabsList className="w-full justify-start">
           <TabsTrigger value="material" className="gap-1.5">
             <BookOpen className="h-4 w-4" />
-            Материал
+            {t("tabs.material", "Material")}
           </TabsTrigger>
           <TabsTrigger value="homework" className="gap-1.5" disabled={!assignment}>
             <PenLine className="h-4 w-4" />
-            Домашка
+            {t("tabs.homework", "Homework")}
           </TabsTrigger>
           <TabsTrigger value="ai" className="gap-1.5">
             <Bot className="h-4 w-4" />
-            AI-тьютор
+            {t("tabs.ai", "AI Tutor")}
           </TabsTrigger>
         </TabsList>
 

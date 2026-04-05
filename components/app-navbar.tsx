@@ -15,11 +15,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BookOpen, GraduationCap, LayoutDashboard, Menu, Settings, User, LogOut, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { useLocale } from "@/lib/locale-context"
 
 export function AppNavbar() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const { t, locale, setLocale } = useLocale()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (!user) return null
@@ -39,16 +41,16 @@ export function AppNavbar() {
   const navItems =
     user.role === "student"
       ? [
-          { href: "/", label: "Главная", icon: LayoutDashboard },
-          { href: "/catalog", label: "Каталог", icon: BookOpen },
+          { href: "/", label: t("nav.home", "Home"), icon: LayoutDashboard },
+          { href: "/catalog", label: t("nav.catalog", "Catalog"), icon: BookOpen },
         ]
       : user.role === "teacher"
         ? [
-            { href: "/teacher", label: "Дашборд", icon: LayoutDashboard },
-            { href: "/teacher/courses", label: "Мои курсы", icon: GraduationCap },
+            { href: "/teacher", label: t("nav.dashboard", "Dashboard"), icon: LayoutDashboard },
+            { href: "/teacher/courses", label: t("nav.myCourses", "My Courses"), icon: GraduationCap },
           ]
         : [
-            { href: "/admin", label: "Админ-панель", icon: Settings },
+            { href: "/admin", label: t("nav.adminPanel", "Admin"), icon: Settings },
           ]
 
   return (
@@ -94,15 +96,20 @@ export function AppNavbar() {
                 <span className="text-sm">{user.full_name}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => router.push("/profile")}>
+              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => router.push("/profile") }>
                 <User className="mr-2 h-4 w-4" />
-                Профиль
+                {t("nav.profile", "Profile")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setLocale(locale === "ru" ? "en" : "ru") }>
+                <User className="mr-2 h-4 w-4" />
+                {locale === "ru" ? "English" : "Русский"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                Выйти
+                {t("nav.logout", "Log out")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
